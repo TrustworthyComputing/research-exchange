@@ -49,4 +49,12 @@
 * Run the command `npm install` to download all required dependencies.
 * Open the file "frontend/src/services/auth.service.ts" in a text editor and set the "GITHUB_CLIENT_ID" field to the Client ID received from GitHub in the "Setup Github Oauth Application" section.
 * Run the command `ng serve` to start the server.
-* Your application is now running and available to test locally at `http://localhost:4200/`. 
+* Your application is now running and available to test locally at `http://localhost:4200/`.
+
+## Acknowledgments
+The design this app was partially supported by the National Science Foundation (Award #2234974).
+
+<p align="center">
+    <img src="./logos/twc.png" height="20%" width="20%">
+</p>
+<h4 align="center">Trustworthy Computing Group</h4>
