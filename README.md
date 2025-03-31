@@ -52,7 +52,7 @@
 * Your application is now running and available to test locally at `http://localhost:4200/`.
 
 ## Acknowledgments
-The design this app was partially supported by the National Science Foundation (Award #2234974).
+The design of this app was supported by the National Science Foundation (Award #2234974).
 
 <p align="center">
     <img src="./logos/twc.png" height="20%" width="20%">
