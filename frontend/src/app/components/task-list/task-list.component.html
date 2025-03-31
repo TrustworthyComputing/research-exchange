@@ -1,0 +1,47 @@
+<div class="col-md-6 mx-auto my-5 mb-0">
+  <div class="card my-3">
+    <div class="card-header bg-primary text-light">Filter Tasks</div>
+    <div class="row card-body">
+      <div class="input-group">
+        <input type="text" class="form-control" placeholder="Search tasks..."  [(ngModel)]="searchTerm">
+        <button class="btn btn-primary" type="button">
+          <i class="fa fa-search"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header bg-primary text-light">Browse Tasks</div>
+    <div class="row card-body">
+      <div *ngIf="loggedIn" class="col-md-12">
+        <a class="btn btn-primary" routerLink="/tasks/create"><i class="fa-solid fa-plus"></i> Create New Task</a>
+      </div>
+      <div>
+        <table class="table">
+          <thead>
+          <tr>
+            <th scope="col">Task Name</th>
+            <th scope="col">Author</th>
+            <th scope="col">Current Bid</th>
+            <th scope="col">Total Bids</th>
+            <th scope="col">End Bid Date</th>
+            <th scope="col">Completion Deadline</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr *ngFor="let task of getFilteredTasks()">
+            <th scope="row"><a routerLink="/tasks/{{task.id}}">{{ task.title }}</a></th>
+            <td>{{ task.author }}</td>
+            <td>{{ task.current_bid }}</td>
+            <td>{{ task.total_bids }}</td>
+            <td>{{ task.end_bid_date | date: 'short' }}</td>
+            <td>{{ task.end_date | date: 'short' }}</td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="text-center" *ngIf="tasks.length <= 0">No tasks found.</p>
+      </div>
+    </div>
+  </div>
+</div>
+

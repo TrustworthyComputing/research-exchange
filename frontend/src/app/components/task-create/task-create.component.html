@@ -1,0 +1,84 @@
+<div class="col-md-6 mx-auto my-5">
+  <div class="card">
+    <div class="card-header bg-primary text-light">Create New Task</div>
+    <div class="row card-body">
+      <form [formGroup]="createTaskForm" (ngSubmit)="onSubmit()" class="mx-auto">
+        <div>
+          <label for="exampleFormControlInput1" class="form-label">Title</label>
+          <input formControlName="title" type="text" class="form-control" id="exampleFormControlInput1">
+          <div *ngIf="errors['title']">
+            <div *ngFor="let error of errors['title']">
+              <div class="alert alert-danger mt-3">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label for="exampleFormControlTextarea1" class="form-label">Description</label>
+          <textarea formControlName="description" class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
+          <div *ngIf="errors['description']">
+            <div *ngFor="let error of errors['description']">
+              <div class="alert alert-danger mt-3">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label for="inputMinimumPrice" class="form-label">Start Bid Amount</label>
+          <input formControlName="start_bid_amount" class="form-control" type="number" min="0" step="0.01"
+                 id="inputMinimumPrice">
+          <div *ngIf="errors['start_bid_amount']">
+            <div *ngFor="let error of errors['start_bid_amount']">
+              <div class="alert alert-danger mt-3">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Bid End Date</label>
+          <input type="text"
+                 placeholder="Datepicker"
+                 class="form-control"
+                 formControlName="end_bid_date"
+                 bsDatepicker
+                 [bsConfig]="{
+              adaptivePosition: true,
+              containerClass: 'theme-default',
+              withTimepicker: true,
+              rangeInputFormat : 'MMMM Do YYYY, h:mm:ss a',
+              dateInputFormat: 'MMMM Do YYYY, h:mm:ss a'
+              }">
+          <div *ngIf="errors['end_bid_date']">
+            <div *ngFor="let error of errors['end_bid_date']">
+              <div class="alert alert-danger mt-3">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Completion Deadline</label>
+          <input type="text"
+                 placeholder="Datepicker"
+                 class="form-control"
+                 formControlName="end_date"
+                 bsDatepicker
+                 [bsConfig]="{
+              adaptivePosition: true,
+              containerClass: 'theme-default',
+              withTimepicker: true,
+              rangeInputFormat : 'MMMM Do YYYY, h:mm:ss a',
+              dateInputFormat: 'MMMM Do YYYY, h:mm:ss a'
+              }">
+          <div *ngIf="errors['end_date']">
+            <div *ngFor="let error of errors['end_date']">
+              <div class="alert alert-danger mt-3">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Submit</button>
+        <div *ngIf="success" class="alert alert-success alert-dismissible fade show mt-2" role="alert">
+          <strong>Success!</strong> Your task has been created.
+          <button type="button" class="btn btn-close" data-bs-dismiss="alert" aria-label="Close"
+                  (click)="success = false"></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+

@@ -1,0 +1,65 @@
+<div class="col-md-6 mx-auto my-5">
+  <div class="card">
+    <div class="card-header bg-primary text-light">Profile</div>
+    <div class="row card-body text-center">
+      <p>Welcome, {{user?.username}}</p>
+      <tabset [justified]="true">
+        <tab heading="My Tasks">
+          <div>
+            <table class="col-md-5 p-lg-5 mx-auto my-5 table">
+              <thead>
+              <tr>
+                <th scope="col">Task</th>
+                <th scope="col">Current Bid</th>
+                <th scope="col">End Bid Date</th>
+                <th scope="col">Completion Deadline</th>
+                <th scope="col">Status</th>
+                <th scope="col">Action</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr *ngFor="let task of tasks">
+                <td>{{ task.title }}</td>
+                <td>{{ task.current_bid}}</td>
+                <td>{{ task.end_bid_date | date: 'medium' }}</td>
+                <td>{{ task.end_date | date: 'medium' }}</td>
+                <td>{{ TaskStatus[task.status] }}</td>
+                <td><a class="btn btn-primary" routerLink="/tasks/{{task.id}}">Manage</a></td>
+              </tr>
+              </tbody>
+            </table>
+            <h6 *ngIf="!tasks.length" class="text-center">No tasks available. Click <a routerLink="/tasks/create">here</a> to
+              create a task.</h6>
+          </div>
+        </tab>
+        <tab heading="My Bids">
+          <div>
+            <table class="col-md-5 p-lg-5 mx-auto my-5 table">
+              <thead class="thead-dark">
+              <tr>
+                <th scope="col">Task</th>
+                <th scope="col">Created Date</th>
+                <th scope="col">Amount</th>
+                <th scope="col">Status</th>
+                <th scope="col">Action</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr *ngFor="let bid of bids">
+                <td>{{ bid.task_name }}</td>
+                <td>{{ bid.created_date | date: 'medium' }}</td>
+                <td>{{ bid.amount }}</td>
+                <td>{{ BidStatus[bid.status] }}</td>
+                <td><a class="btn btn-primary" routerLink="/tasks/{{bid.task}}">View Details </a></td>
+              </tr>
+              </tbody>
+            </table>
+            <h6 *ngIf="!bids.length" class="text-center">No active bids available. Click <a routerLink="/tasks">here</a> to
+              find a task to bid on.</h6>
+          </div>
+        </tab>
+      </tabset>
+
+    </div>
+  </div>
+</div>
