@@ -1,3 +1,5 @@
+import {Bid} from "./bid";
+
 export enum CurrencyCode {
   USD = "USD"
 }
@@ -14,13 +16,18 @@ export interface Task {
   author: string
   title: string
   description: string
-  start_bid_currency_code: CurrencyCode
   start_bid_amount: number
   current_bid: number
   total_bids: number
   end_bid_date: Date,
   end_date: Date,
-  status: TaskStatus
+  status: TaskStatus,
+  is_editable: boolean,
+  is_cancellable: boolean,
+  is_completeable: boolean,
+  is_biddable: boolean,
+  user_bid: Bid
+  finalized: boolean
 }
 
 export interface CreateTask {
@@ -29,4 +36,9 @@ export interface CreateTask {
   start_bid_amount?: number | null
   end_bid_date?: Date | null
   end_date?: Date | null
+}
+
+export interface RequestEditTask {
+  title: string,
+  description: string
 }

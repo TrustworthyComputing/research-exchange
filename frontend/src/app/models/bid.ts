@@ -7,13 +7,17 @@ export enum BidStatus {
 }
 
 export interface Bid {
-  id: number
-  task: number
+  uid: number
+  task_uid: number
   author: string
   status: BidStatus
   created_date: Date
-  task_name: string
+  task_title: string
   amount: number
   cancelled: boolean
-  cancel_requested: boolean
+  cancel_requested: boolean,
+  is_lowest: boolean,
+  is_winner: boolean,
+  is_cancellable: boolean,
+  is_payable: boolean,
 }

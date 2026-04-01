@@ -15,7 +15,7 @@ export class TaskService {
     return this.http.post<any>(`${API_URL}/tasks/`, task);
   }
 
-  edit(taskId: string, task: CreateTask) {
+  editInformation(taskId: string, task: CreateTask) {
     return this.http.patch<Task>(`${API_URL}/tasks/${taskId}/`, task);
   }
 

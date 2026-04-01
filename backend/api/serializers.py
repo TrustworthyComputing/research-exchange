@@ -3,132 +3,163 @@ from django.utils import timezone
 from api import models
 from rest_framework import serializers, exceptions
 
-from api.models import Bid, BidStatus, TaskStatus
+from api.models import Bid, BidStatus, TaskStatus, Task, UserWallet
+
+
+class BidSerializer(serializers.ModelSerializer):
+    task_title = serializers.CharField(source='task.title', read_only=True)
+    task_uid = serializers.IntegerField(source='task.uid', read_only=True)
+    author = serializers.SerializerMethodField()
+    is_lowest = serializers.SerializerMethodField()
+    is_winner = serializers.SerializerMethodField()
+    is_cancellable = serializers.SerializerMethodField()
+    is_payable = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Bid
+        fields = [
+            'uid',
+            'amount',
+            'created_date',
+            'cancel_requested',
+            'cancelled',
+            'task_uid',
+            'task_title',
+            'is_lowest',
+            'is_winner',
+            'is_cancellable',
+            'is_payable',
+            'author'
+        ]
+
+    def get_is_lowest(self, obj):
+        # Only consider non-cancelled bids for the task
+        lowest_bid = obj.task.bid_set.filter(cancelled=False).order_by('amount').first()
+        return lowest_bid and lowest_bid.uid == obj.uid
+
+    def get_is_winner(self, obj):
+        now = timezone.now()
+        return  self.get_is_lowest(obj) and now > obj.task.end_bid_date
+
+    def get_is_cancellable(self, obj):
+        return not obj.task.finalized
+
+    def get_is_payable(self, obj):
+        return not obj.task.finalized and self.get_is_winner(obj)
+
+    def get_author(self, obj):
+        try:
+            wallet = UserWallet.objects.get(wallet_address=obj.wallet_address)
+            return wallet.user.username
+        except UserWallet.DoesNotExist:
+            return None
 
 
 class TaskSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='uid', read_only=True)
     author = serializers.SerializerMethodField()
-    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
     current_bid = serializers.SerializerMethodField()
     total_bids = serializers.SerializerMethodField()
-    status = serializers.SerializerMethodField()
-
-    def get_author(self, obj):
-        return obj.created_by.username
-
-    def get_current_bid(self, obj):
-        start_bid_amount = obj.start_bid_amount
-        bids = models.Bid.objects.filter(task=obj.id).order_by('amount')[:1]
-        if not bids:
-            return start_bid_amount
-
-        return bids[0].amount
-
-    def get_total_bids(self, obj):
-        return models.Bid.objects.filter(task=obj.id).count()
-
-    def get_status(self, obj):
-        if obj.cancelled:
-            return TaskStatus.CANCELLED
-
-        if obj.completed:
-            return TaskStatus.COMPLETED
-
-        auction_active = timezone.now() < obj.end_bid_date
-        if auction_active:
-            return TaskStatus.ACCEPTING_BIDS
-
-        deadline_over = timezone.now() - obj.end_date
-        if not deadline_over:
-            return TaskStatus.PENDING_COMPLETION
-
-        return TaskStatus.CANCELLED
-
-    def validate(self, data):
-        if timezone.now() >= data['end_bid_date']:
-            raise exceptions.ValidationError({'end_bid_date': 'Bid end date must be placed in the future.'})
-
-        if data['end_date'] <= data['end_bid_date']:
-            raise exceptions.ValidationError({'end_date': 'End date must be after end bid date.'})
-
-        return data
+    end_bid_date = serializers.DateTimeField()
+    end_date = serializers.DateTimeField(source='complete_date')
+    is_editable = serializers.SerializerMethodField()
+    is_cancellable = serializers.SerializerMethodField()
+    is_completeable = serializers.SerializerMethodField()
+    is_biddable = serializers.SerializerMethodField()
+    user_bid = serializers.SerializerMethodField()
+    finalized = serializers.BooleanField()
 
     class Meta:
-        model = models.Task
+        model = Task
+        # Include all relevant fields
         fields = [
             'id',
             'author',
             'title',
             'description',
             'start_bid_amount',
-            'end_bid_date',
-            'end_date',
             'current_bid',
             'total_bids',
-            'created_date',
-            'created_by',
-            'completed',
-            'status'
+            'end_bid_date',
+            'end_date',
+            'is_editable',
+            'is_cancellable',
+            'is_completeable',
+            'is_biddable',
+            'user_bid',
+            'finalized'
         ]
-        read_only_fields = [
-            'created_date',
-            'created_by'
-        ]
-
-
-class BidSerializer(serializers.ModelSerializer):
-    author = serializers.SerializerMethodField()
-    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    task_name = serializers.SerializerMethodField()
-    status = serializers.SerializerMethodField()
 
     def get_author(self, obj):
-        return obj.created_by.username
+        try:
+            user_wallet = UserWallet.objects.get(wallet_address=obj.wallet_address)
+            return user_wallet.user.username
+        except UserWallet.DoesNotExist:
+            return obj.wallet_address
 
-    def get_task_name(self, obj):
-        return obj.task.title
+    def get_current_bid(self, obj):
+        # Return the highest bid amount, or 0 if no bids
+        highest_bid = obj.bid_set.filter(cancelled=False).order_by('-amount').first()
+        return highest_bid.amount if highest_bid else obj.start_bid_amount
 
-    def get_status(self, obj):
-        if obj.cancelled:
-            return BidStatus.CANCELLED
-        task_bids = Bid.objects.filter(task=obj.task)
-        lowest_bid = min(task_bids, key=lambda bid: bid.amount)
-        winning = lowest_bid.id == obj.id
-        auction_over = timezone.now() >= obj.task.end_bid_date
-        if winning:
-            if auction_over:
-                return BidStatus.WON
-            else:
-                return BidStatus.WINNING
-        else:
-            if auction_over:
-                return BidStatus.LOST
-            else:
-                return BidStatus.LOSING
+    def get_total_bids(self, obj):
+        # Count all bids that are not cancelled
+        return obj.bid_set.filter(cancelled=False).count()
 
-    def __init__(self, *args, **kwargs):
-        # Call parent constructor
-        super().__init__(*args, **kwargs)
-        if self.instance:
-            self.fields['amount'].required = False
-            self.fields['cancelled'].required = False
-            self.fields['cancel_requested'].required = False
+    def get_is_editable(self, obj):
+        if not obj.is_editable():
+            return False
 
-    class Meta:
-        model = models.Bid
-        fields = [
-            'id',
-            'task',
-            'author',
-            'created_date',
-            'created_by',
-            'task_name',
-            'amount',
-            'cancelled',
-            'cancel_requested',
-            'status'
-        ]
-        read_only_fields = [
-            'created_date',
-            'created_by'
-        ]
+        request = self.context.get('request', None)
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return UserWallet.objects.filter(user=request.user, wallet_address=obj.wallet_address).exists()
+
+    def get_is_biddable(self, obj):
+        if not obj.is_biddable():
+            return False
+
+        request = self.context.get('request', None)
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return not UserWallet.objects.filter(user=request.user, wallet_address=obj.wallet_address).exists()
+
+    def get_is_cancellable(self, obj):
+        if not obj.is_cancellable():
+            return False
+
+        request = self.context.get('request', None)
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return UserWallet.objects.filter(user=request.user, wallet_address=obj.wallet_address).exists()
+
+    def get_is_completeable(self, obj):
+        if not obj.is_completeable():
+            return False
+
+        request = self.context.get('request', None)
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return UserWallet.objects.filter(user=request.user, wallet_address=obj.wallet_address).exists()
+
+    def get_user_bid(self, obj):
+        request = self.context.get('request', None)
+        if not request:
+            return None
+        user_wallets = UserWallet.objects.filter(user=request.user).values_list('wallet_address', flat=True)
+        bid = obj.bid_set.filter(wallet_address__in=user_wallets, cancelled=False).first()
+        return BidSerializer(bid).data if bid else None
+
+
+
+class WalletRequestNonceSerializer(serializers.Serializer):
+    address = serializers.CharField(max_length=42)
+
+
+class WalletVerifySignatureSerializer(serializers.Serializer):
+    address = serializers.CharField(max_length=42)
+    signature = serializers.CharField()

@@ -1,57 +1,62 @@
 <div class="col-md-6 mx-auto my-5 mb-0">
+
+  <div *ngIf="task?.is_cancellable">
+    <button class="btn btn-danger w-100 mb-1" type="button" (click)="onCancelTask()">Cancel Task and Reclaim Funds</button>
+  </div>
+
   <!-- Task Description (readonly) -->
-  <div *ngIf="!isTaskEditable()" class="card my-3">
+  <div *ngIf="!task?.is_editable" class="card my-3">
     <div class="card-header bg-primary text-light">Task - {{ task?.title }}</div>
     <div class="row card-body">
       <p>Author - {{ task?.author }}</p>
       <p>Description - {{ task?.description }}</p>
       <p>Start Bid Amount - {{ task?.start_bid_amount }}</p>
       <p>End Bid Date - {{ task?.end_bid_date | date: 'medium' }}</p>
-      <p *ngIf="task?.status">Status - {{ TaskStatus[getTaskStatus()] }}</p>
-
+      <p>Complete Date - {{ task?.end_date | date: 'medium' }}</p>
     </div>
   </div>
 
-  <!-- Task Description (editable) -->
-  <div *ngIf="isTaskEditable()" class="card my-3">
-    <div class="card-header bg-primary text-light">Task - {{ task?.title }}</div>
+  <!-- Task Information (editable) -->
+  <div *ngIf="task?.is_editable" class="card my-3">
+    <div class="card-header bg-primary text-light">Task - Information </div>
     <div class="row card-body">
-      <form [formGroup]="editTaskForm" (ngSubmit)="onEditTask()" class="mx-auto">
-        <div>
+      <form [formGroup]="editTaskInformationForm" (ngSubmit)="onEditTaskInformation()" class="mx-auto">
+        <div class="mb-3">
           <label for="exampleFormControlInput1" class="form-label">Title</label>
           <input formControlName="title" type="text" class="form-control" id="exampleFormControlInput1">
-          <div *ngIf="errors['title']">
-            <div *ngFor="let error of errors['title']">
-              <div class="alert alert-danger mt-3">{{ error }}</div>
-            </div>
-          </div>
         </div>
-        <div>
+        <div class="mb-3">
           <label for="exampleFormControlTextarea1" class="form-label">Description</label>
           <textarea formControlName="description" class="form-control" id="exampleFormControlTextarea1"
                     rows="3"></textarea>
-          <div *ngIf="errors['description']">
-            <div *ngFor="let error of errors['description']">
-              <div class="alert alert-danger mt-3">{{ error }}</div>
-            </div>
-          </div>
         </div>
+        <button type="submit" class="btn btn-primary btn-block me-3">Update</button>
+        <button type="button" class="btn btn-primary btn-block" (click)="onCancelEditTaskInformation()">Revert</button>
+        <div *ngIf="successEditInformation" class="alert alert-success alert-dismissible fade show mt-2" role="alert">
+          <strong>Success!</strong> Your task has been updated.
+          <button type="button" class="btn btn-close" data-bs-dismiss="alert" aria-label="Close"
+                  (click)="successEditInformation = false"></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Task Details (editable) -->
+  <div *ngIf="task?.is_editable" class="card my-3">
+    <div class="card-header bg-primary text-light">Task - Details </div>
+    <div class="row card-body">
+      <form [formGroup]="editTaskDetailsForm" (ngSubmit)="onEditTaskDetails()" class="mx-auto">
         <div class="mb-3">
           <label for="inputMinimumPrice" class="form-label">Start Bid Amount</label>
           <input formControlName="start_bid_amount" class="form-control" type="number" min="0" step="0.01"
                  id="inputMinimumPrice">
-          <div *ngIf="errors['start_bid_amount']">
-            <div *ngFor="let error of errors['start_bid_amount']">
-              <div class="alert alert-danger mt-3">{{ error }}</div>
-            </div>
-          </div>
         </div>
         <div class="mb-3">
           <label class="form-label">Bid End Date</label>
           <input type="text"
                  placeholder="Datepicker"
                  class="form-control"
-                 formControlName="end_bid_date"
+                 formControlName="bid_end_date"
                  bsDatepicker
                  [bsConfig]="{
               adaptivePosition: true,
@@ -60,18 +65,13 @@
               rangeInputFormat : 'MMMM Do YYYY, h:mm:ss a',
               dateInputFormat: 'MMMM Do YYYY, h:mm:ss a'
               }">
-          <div *ngIf="errors['end_bid_date']">
-            <div *ngFor="let error of errors['end_bid_date']">
-              <div class="alert alert-danger mt-3">{{ error }}</div>
-            </div>
-          </div>
         </div>
         <div class="mb-3">
           <label class="form-label">Task Completion Date</label>
           <input type="text"
                  placeholder="Datepicker"
                  class="form-control"
-                 formControlName="end_date"
+                 formControlName="complete_date"
                  bsDatepicker
                  [bsConfig]="{
               adaptivePosition: true,
@@ -80,18 +80,16 @@
               rangeInputFormat : 'MMMM Do YYYY, h:mm:ss a',
               dateInputFormat: 'MMMM Do YYYY, h:mm:ss a'
               }">
-          <div *ngIf="errors['end_date']">
-            <div *ngFor="let error of errors['end_date']">
-              <div class="alert alert-danger mt-3">{{ error }}</div>
-            </div>
-          </div>
         </div>
         <button type="submit" class="btn btn-primary btn-block me-3">Update</button>
-        <button type="button" class="btn btn-primary btn-block" (click)="onCancelEditTask()">Cancel Changes</button>
-        <div *ngIf="success" class="alert alert-success alert-dismissible fade show mt-2" role="alert">
+        <button type="button" class="btn btn-primary btn-block" (click)="onCancelEditTaskDetails()">Revert</button>
+        <div *ngIf="successEditDetails" class="alert alert-success alert-dismissible fade show mt-2" role="alert">
           <strong>Success!</strong> Your task has been updated.
           <button type="button" class="btn btn-close" data-bs-dismiss="alert" aria-label="Close"
-                  (click)="success = false"></button>
+                  (click)="successEditDetails = false"></button>
+        </div>
+        <div *ngIf="detailsErrors">
+          <div class="alert alert-danger mt-3">{{ detailsErrors }}</div>
         </div>
       </form>
     </div>
@@ -117,12 +115,12 @@
           <td>{{ bid.author }}</td>
           <td>{{ bid.created_date | date: 'medium' }}</td>
           <td>{{ bid.amount }}</td>
-          <td>{{ BidStatus[bid.status] }}</td>
+          <td>{{ task?.finalized ? "Finalized" :  bid.cancelled ? "Cancelled" : bid.is_payable ? "Ready to Pay Out" : bid.cancel_requested ? "Cancel Requested" : "Out Bid" }}</td>
           <td *ngIf="bid.cancel_requested">Yes</td>
           <td *ngIf="!bid.cancel_requested">No</td>
           <td>
-            <a *ngIf="bid.status == BidStatus.WON" class="btn btn-primary">Pay Out</a>
-            <a *ngIf="bid.status != BidStatus.WON && bid.status != BidStatus.LOST" class="btn btn-primary"
+            <a *ngIf="bid.is_payable" (click)="onCompleteTask(bid)" class="btn btn-primary">Pay Out</a>
+            <a *ngIf="bid.is_cancellable" class="btn btn-primary"
                (click)="onCancelBid(bid)">Cancel</a>
           </td>
         </tr>
@@ -133,7 +131,7 @@
         <div class="alert alert-danger mt-3">{{ error }}</div>
       </div>
       <div *ngIf="successCancel" class="alert alert-success alert-dismissible fade show mt-2" role="alert">
-        <strong>Success!</strong> Your bid has been cancelled.
+        <strong>Success!</strong> The bid has been cancelled.
         <button type="button" class="btn btn-close" data-bs-dismiss="alert" aria-label="Close"
                 (click)="successCancel = false"></button>
       </div>
@@ -141,16 +139,18 @@
   </div>
 
   <!-- Place/Update Bids (owner only) -->
-  <div *ngIf="isTaskBiddable()" class="card">
+  <div *ngIf="task?.is_biddable" class="card">
     <div class="card-header bg-primary text-light">Place Bids for Task - {{ task?.title }}</div>
     <div class="row card-body">
       <p>Current Best Bid - {{ task?.current_bid }}</p>
-      <p *ngIf="myBid">Your Bid - {{ myBid?.amount }}</p>
-      <p *ngIf="!myBid">Your Bid - None</p>
-      <input type="number" class="form-control mb-3" id="numericInput" min="0" value="0">
+      <p *ngIf="task?.user_bid">Your Bid - {{ task?.user_bid?.amount }}</p>
+      <p *ngIf="!task?.user_bid">Your Bid - None</p>
+      <p *ngIf="task?.user_bid">Requested Cancel? - {{ task?.user_bid?.cancel_requested ? "Yes" : "No" }}</p>
+      <p *ngIf="task?.user_bid">Cancelled? - {{ task?.user_bid?.cancelled ? "Yes" : "No" }}</p>
+      <input type="number" class="form-control mb-3" id="numericInput" min="0" value="0" step="1" [(ngModel)]="offer_bid_amount">
       <div>
         <button class="btn btn-primary me-3" type="button" (click)="onPlaceBid()">Place Bid</button>
-        <button class="btn btn-primary" type="button" (click)="onRequestCancelBid()">Request Cancel Bid</button>
+        <button *ngIf="!task?.user_bid?.cancel_requested" class="btn btn-primary" type="button" (click)="onRequestCancelBid()">Request Cancel Bid</button>
       </div>
 
       <div *ngFor="let error of changeBidErrors">

@@ -19,32 +19,11 @@ export class BidService {
     return this.http.get<Bid[]>(`${API_URL}/tasks/${taskId}/bids/`);
   }
 
-  create(taskId: number) {
-    return this.http.post<void>(`${API_URL}/bids/`,
+  request_cancel(taskid: number, bidid: number) {
+    return this.http.post<void>(`${API_URL}/tasks/${taskid}/bids/${bidid}/cancel/`,
       {
-        task: taskId,
-        created_by: 'user'
+        taskid: taskid,
+        bidid: bidid,
       });
   }
-
-  requestCancelBid(bid: Bid) {
-    return this.http.patch<Bid>(`${API_URL}/bids/${bid.id}/`,
-      {
-        task: bid.task,
-        amount: bid.amount,
-        cancel_requested: true,
-        cancelled: bid.cancel_requested
-      });
-  }
-
-  cancelBid(bid: Bid) {
-    return this.http.patch<Bid>(`${API_URL}/bids/${bid.id}/`,
-      {
-        task: bid.task,
-        amount: bid.amount,
-        cancel_requested: bid.cancel_requested,
-        cancelled: true
-      });
-  }
-
 }

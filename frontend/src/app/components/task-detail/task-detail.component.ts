@@ -1,6 +1,6 @@
 import {Component, OnInit} from '@angular/core';
 import {TaskService} from "../../services/task.service";
-import {CreateTask, CurrencyCode, Task, TaskStatus} from "../../models/task";
+import {CreateTask, CurrencyCode, RequestEditTask, Task, TaskStatus} from "../../models/task";
 import {ActivatedRoute, Router, RouterLink} from "@angular/router";
 import {catchError, Subscription} from "rxjs";
 import {UserService} from "../../services/user.service";
@@ -9,9 +9,10 @@ import {DatePipe, JsonPipe, NgForOf, NgIf, NgOptimizedImage} from "@angular/comm
 import {BidService} from "../../services/bid.service";
 import {AlertModule} from "ngx-bootstrap/alert";
 import {Bid, BidStatus} from "../../models/bid";
-import {FormControl, FormGroup, ReactiveFormsModule} from "@angular/forms";
+import {FormControl, FormGroup, FormsModule, ReactiveFormsModule} from "@angular/forms";
 import {BsDatepickerModule} from "ngx-bootstrap/datepicker";
 import {User} from "../../models/user";
+import {ContractService} from "../../services/contract.service";
 
 @Component({
   selector: 'app-task-detail',
@@ -25,19 +26,23 @@ import {User} from "../../models/user";
     RouterLink,
     BsDatepickerModule,
     NgForOf,
-    DatePipe
+    DatePipe,
+    FormsModule
   ],
   templateUrl: './task-detail.component.html',
   styleUrl: './task-detail.component.scss'
 })
 export class TaskDetailComponent implements OnInit {
 
-  editTaskForm = new FormGroup({
+  editTaskInformationForm = new FormGroup({
     title: new FormControl(''),
     description: new FormControl(''),
+  });
+
+  editTaskDetailsForm = new FormGroup({
     start_bid_amount: new FormControl(0),
-    end_bid_date: new FormControl(new Date()),
-    end_date: new FormControl(new Date())
+    bid_end_date: new FormControl(new Date()),
+    complete_date: new FormControl(new Date()),
   });
 
   user?: User;
@@ -48,16 +53,20 @@ export class TaskDetailComponent implements OnInit {
   bids?: Bid[];
   successAlert?: string;
   errorAlert?: any;
-  success: boolean = false;
-  errors: {[key: string]: string[]} = {}
+  successEditInformation: boolean = false;
+  successEditDetails: boolean = false;
+  detailsErrors?: any
+  errors: { [key: string]: string[] } = {}
   manageBidErrors: string[] = []
   changeBidErrors: string[] = []
   successCancel: boolean = false;
   successPlace: boolean = false;
-  myBid?: Bid;
 
-  constructor(private route: ActivatedRoute, private router: Router, private taskService: TaskService,
-              private authService: AuthService, private userService: UserService, private bidService: BidService) {}
+  offer_bid_amount?: number;
+
+  constructor(private contractService: ContractService, private route: ActivatedRoute, private router: Router, private taskService: TaskService,
+              private authService: AuthService, private userService: UserService, private bidService: BidService) {
+  }
 
   ngOnInit(): void {
     this.loggedInSubscription = this.authService.getLoggedIn().subscribe(loggedIn => {
@@ -78,7 +87,8 @@ export class TaskDetailComponent implements OnInit {
         return []
       })).subscribe(task => {
         this.task = task
-        this.setEditTaskForm(task)
+        this.setEditTaskInformationForm(task)
+        this.setEditTaskDetails(task)
         this.bidService.getForTask(task.id).subscribe(bids => {
           this.bids = bids;
         })
@@ -89,45 +99,19 @@ export class TaskDetailComponent implements OnInit {
     this.router.navigate(['404']);
   }
 
-  private setEditTaskForm(task: Task) {
-    this.editTaskForm.patchValue({
+  private setEditTaskInformationForm(task: Task) {
+    this.editTaskInformationForm.patchValue({
       title: task.title,
       description: task.description,
-      start_bid_amount: task.start_bid_amount,
-      end_bid_date: new Date(task.end_bid_date),
-      end_date: new Date(task.end_date),
     })
   }
 
-  onPlaceBid() {
-    if (this.task) {
-      this.bidService.create(this.task.id).pipe(
-        catchError(err => {
-          this.successAlert = undefined;
-          this.errorAlert = err.error;
-          return []
-        })
-      ).subscribe(_ => {
-        this.errorAlert = undefined;
-        this.successAlert = "Bid successfully placed."
-      });
-    }
-  }
-
-  isTaskEditable() {
-    if (this.bids && this.bids.length != 0) {
-      return false;
-    }
-
-    return this.user?.username == this.task?.author;
-  }
-
-  isTaskBiddable() {
-    if (this.task?.end_bid_date && new Date() > this.task.end_bid_date) {
-      return false;
-    }
-
-    return this.loggedIn && this.user?.username != this.task?.author
+  private setEditTaskDetails(task: Task) {
+    this.editTaskDetailsForm.patchValue({
+      start_bid_amount: task.start_bid_amount,
+      bid_end_date: new Date(task.end_bid_date),
+      complete_date: new Date(task.end_date)
+    })
   }
 
   getTaskStatus(): TaskStatus {
@@ -138,65 +122,152 @@ export class TaskDetailComponent implements OnInit {
     return TaskStatus.CANCELLED
   }
 
-  onEditTask() {
-    let task: CreateTask = {
-      title: this.editTaskForm.value.title,
-      description: this.editTaskForm.value.description,
-      start_bid_amount: this.editTaskForm.value.start_bid_amount,
-      end_bid_date: this.editTaskForm.value.end_bid_date,
-      end_date: this.editTaskForm.value.end_date
+  onEditTaskInformation() {
+    if (!this.editTaskInformationForm.value.title || !this.editTaskInformationForm.value.description) {
+      return
     }
 
-    this.taskService.edit(this.taskId, task).subscribe({
+    let task: RequestEditTask = {
+      title: this.editTaskInformationForm.value.title,
+      description: this.editTaskInformationForm.value.description,
+    }
+
+    this.taskService.editInformation(this.taskId, task).subscribe({
       next: (task) => {
         this.task = task
-        this.errors = {}
-        this.success = true;
-      },
-      error: (error) => {
-        this.errors = error.error;
+        this.successEditInformation = true;
       },
     });
   }
 
-  onCancelEditTask() {
-    this.success = false;
+  onCancelEditTaskInformation() {
+    this.successEditInformation = false;
     this.errors = {}
     if (this.task) {
-      this.setEditTaskForm(this.task);
+      this.setEditTaskInformationForm(this.task);
     }
   }
 
-  onCancelBid(x: Bid) {
-    this.bidService.cancelBid(x).subscribe({
-      next: (bid) => {
-        this.manageBidErrors = []
-        this.bids?.map(b => b.id === x.id ? bid : b)
-      },
-      error: (error) => {
-        this.manageBidErrors = Array.from(error.error as string[]).flat();
-      },
+  onEditTaskDetails() {
+    if (!this.task
+      || !this.editTaskDetailsForm.value.start_bid_amount
+      || !this.editTaskDetailsForm.value.bid_end_date
+      || !this.editTaskDetailsForm.value.complete_date) {
+      return
+    }
+
+    let taskId = this.task.id
+    let start_bid_amount = this.editTaskDetailsForm.value.start_bid_amount
+    let bid_end_date = this.editTaskDetailsForm.value.bid_end_date
+    let complete_date = this.editTaskDetailsForm.value.complete_date
+    this.contractService.updateTask(
+      taskId,
+      start_bid_amount,
+      bid_end_date,
+      complete_date)
+      .then(result => {
+        if (result && this.task) {
+          this.successEditDetails = true;
+          this.task.id = taskId
+          this.task.start_bid_amount = start_bid_amount
+          this.task.end_bid_date = bid_end_date
+          this.task.end_date = complete_date
+          this.detailsErrors = null
+        }
+
+      }).catch(error => {
+        this.successEditDetails = false
+        this.detailsErrors = error.info.error.data.data.reason
     })
+  }
+
+  onCancelEditTaskDetails() {
+    this.successEditDetails = false;
+    this.detailsErrors = null
+    if (this.task) {
+      this.setEditTaskDetails(this.task);
+    }
+  }
+
+  onCancelTask() {
+    if (!this.task) {
+      return;
+    }
+
+    this.contractService.cancelTask(this.task.id)
+      .then(result => {
+        if (result) {
+          this.router.navigate(['profile'])
+        }
+      }).catch(error => {
+        alert(error.info.error.data.data.reason);
+    })
+  }
+
+  onPlaceBid() {
+    console.log("Task:", this.task)
+    if (this.task && this.offer_bid_amount) {
+      this.contractService.placeBid(this.task.id, this.offer_bid_amount)
+        .then(result => {
+          if (result) {
+              this.successPlace = true
+
+          }
+        })
+    }
+  }
+
+  onCancelBid(bid: Bid) {
+    if (!this.task) {
+      console.log("cancel fail")
+      return
+    }
+
+    console.log("Cancel:", this.task.id)
+
+    let taskId = this.task.id
+    let bidId = bid.uid
+    if (taskId && bidId) {
+      this.contractService.cancelBid(taskId, bidId).then(result => {
+        if (result) {
+          alert("Successfully requested cancel bid")
+        }
+      }).catch(error => {
+        alert(error.info.error.data.data.reason);
+      })
+    }
   }
 
   onRequestCancelBid() {
-    if (!this.myBid) {
+    if (!this.task || !this.task.user_bid || this.task.user_bid.cancelled) {
       return
     }
-    this.bidService.requestCancelBid(this.myBid).subscribe({
-      next: (bid) => {
-        this.changeBidErrors = []
-        if (this.myBid) {
-          // @ts-ignore
-          this.bids?.map(b => b.id === this.myBid.id ? bid : b)
-        }
-      },
-      error: (error) => {
-        this.changeBidErrors = Array.from(error.error as string[]).flat();
-      },
+
+    console.log("TEST", this.task.user_bid)
+    let taskId = this.task.id
+    let bidId = this.task.user_bid.uid
+    this.bidService.request_cancel(taskId, bidId).subscribe(result => {
+
+      if (this.task && this.task.user_bid) {
+        // @ts-ignore
+        this.task.user_bid.cancel_requested = true
+        alert("Successfully cancelled bid")
+
+      }
     })
   }
 
-  protected readonly BidStatus = BidStatus;
-  protected readonly TaskStatus = TaskStatus;
+  onCompleteTask(bid: Bid) {
+    if (bid.is_payable) {
+      this.contractService.completeTask(bid.task_uid).then(result => {
+        if (result && this.task) {
+          bid.is_payable = false;
+          this.task.finalized = true
+          alert("Successfully completed task")
+        }
+      }).catch(error => {
+        alert("Failed to complete task")
+      })
+    }
+  }
 }

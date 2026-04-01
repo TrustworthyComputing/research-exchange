@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import {Component} from '@angular/core';
 import {DatePipe, NgForOf, NgIf, NgOptimizedImage} from "@angular/common";
 import {RouterLink} from "@angular/router";
 import {FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators} from "@angular/forms";
@@ -6,6 +6,8 @@ import {TaskService} from "../../services/task.service";
 import {CreateTask} from "../../models/task";
 import {catchError} from "rxjs";
 import {BsDatepickerModule} from "ngx-bootstrap/datepicker";
+import {ContractService} from "../../services/contract.service";
+import {Web3} from "web3";
 
 @Component({
   selector: 'app-task-create',
@@ -30,9 +32,10 @@ export class TaskCreateComponent {
     end_date: new FormControl(new Date())
   });
   success: boolean = false;
-  errors: {[key: string]: string[]} = {}
+  errors: any = ''
 
-  constructor(private taskService: TaskService) {}
+  constructor(private taskService: TaskService, private contractService: ContractService) {
+  }
 
   onSubmit() {
     let task: CreateTask = {
@@ -43,17 +46,29 @@ export class TaskCreateComponent {
       end_date: this.createTaskForm.value.end_date
     }
 
-    this.taskService.create(task).pipe(catchError(err => {
-      if (err.status == 400) {
-        this.errors = err.error;
-        return []
-      }
-      return err
-    })).subscribe(data => {
-      this.createTaskForm.reset();
-      this.errors = {};
-      this.success = true;
-    });
+    if (task.title === null
+      || task.title === undefined
+      || task.description === null
+      || task.description === undefined
+      || task.start_bid_amount === null
+      || task.start_bid_amount == undefined
+      || task.end_bid_date == null
+      || task.end_date == null) {
+      return
+    }
+
+    this.contractService.createTask(task.title, task.description, task.start_bid_amount, task.end_bid_date, task.end_date)
+      .then(result => {
+        if (result) {
+          this.createTaskForm.reset()
+          this.success = true
+          this.errors = null
+        }
+      })
+      .catch((error) => {
+        this.errors = error.info.error.data.data.reason
+        this.success = false
+      })
   }
 
   get title() {

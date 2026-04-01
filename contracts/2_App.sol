@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "contracts/1_Owner.sol";
+import "1_Owner.sol";
 
 contract App is Owner {
 
@@ -12,12 +12,13 @@ contract App is Owner {
 		uint256 startAmount;
 		uint256 depositAmount;
 		uint256 bidEndDate;
+		uint256 completeDate;
 		bool finalized;
 		uint bidCounter;
         Bid minBid;
 		mapping(uint => Bid) bids;
 	}
-	
+
 	struct Bid {
 		uint id;
 		uint256 amount;
@@ -28,13 +29,20 @@ contract App is Owner {
 
     event LogCreateTask(
         uint indexed taskId,
+        string title,
+        string description,
         address indexed owner,
         uint256 startAmount,
-        uint256 depositAmount,
-        uint bidEndDate
+        uint256 bidEndDate,
+        uint256 completeDate
     );
 
-    event LogDepositTask(uint indexed taskId);
+    event LogUpdateTask(
+        uint indexed taskId,
+        uint256 startAmount,
+        uint256 bidEndDate,
+        uint256 completeDate
+    );
 
 	event LogCancelTask(uint indexed taskId);
 
@@ -48,66 +56,74 @@ contract App is Owner {
 		address indexed owner
 	);
 
-    event LogCancelBid(uint indexed id);
+    event LogCancelBid(uint taskId, uint indexed id);
 
-	mapping (uint => Task) public tasks;
+	mapping (uint => Task) tasks;
 	uint taskCounter;
 
-	function createTask(address taskOwner, uint256 startAmount, uint256 bidEndDate) public isOwner {
-		require(block.timestamp > bidEndDate);
+	constructor() {
+    }
+
+	function createTask(string memory title, string memory description, uint256 bidEndDate, uint256 completeDate) public payable {
+		require(bytes(title).length > 0, "Title cannot be empty");
+        require(bytes(description).length > 0, "Description cannot be empty");
+		require(block.timestamp < bidEndDate, "Bid end date must be in the future");
+		require(completeDate > bidEndDate, "Complete date must be after bid end date");
 
 		taskCounter++;
         tasks[taskCounter].id = taskCounter;
         Task storage task = tasks[taskCounter];
-        task.owner = taskOwner;
-        task.startAmount = startAmount;
-        task.depositAmount = 0;
+        task.owner = msg.sender;
+        task.startAmount = msg.value;
+        task.depositAmount = msg.value;
         task.bidEndDate = bidEndDate;
+        task.completeDate = completeDate;
         task.bidCounter = 0;
         task.finalized = false;
-        emit LogCreateTask(taskCounter, msg.sender, startAmount, startAmount, bidEndDate);
+
+        emit LogCreateTask(taskCounter, title, description, msg.sender, msg.value, bidEndDate, completeDate);
 	}
 
-	function depositTask(uint taskId) public payable {
-		require(taskId > 0 && taskId <= taskCounter);
+	function updateTask(uint taskId, uint startAmount, uint256 bidEndDate, uint256 completeDate) public {
+	    require(taskId > 0 && taskId <= taskCounter, "Task does not exist");
+	    require(block.timestamp < bidEndDate, "Bid end date must be in the future");
+	    require(completeDate > bidEndDate, "Complete date must be after bid end date");
 
-		Task storage task = tasks[taskId];
-		require(task.owner == msg.sender);
-		require(task.startAmount == msg.value);
-		require(task.depositAmount == 0);
-		require(!task.finalized);
+	    Task storage task = tasks[taskId];
+        require(!task.finalized, "You can not update a finalized task.");
+		require(task.owner == msg.sender, "You can not update a task that you do not own.");
+        require(task.bidCounter == 0, "You can not update a task with bids.");
+        require(startAmount <= task.depositAmount, "Updated amount must be <= initial deposit.");
 
-		task.depositAmount = msg.value;
-		emit LogDepositTask(taskId);
+        task.startAmount = startAmount;
+        task.bidEndDate = bidEndDate;
+        task.completeDate = completeDate;
+
+        emit LogUpdateTask(taskId, startAmount, bidEndDate, completeDate);
 	}
 
+	function cancelTask(uint taskId) public {
+		require(taskId > 0 && taskId <= taskCounter, "Task does not exist.");
 
-	function cancelTask(uint taskId) public isOwner {
-		require(taskId > 0 && taskId <= taskCounter);
-		
 		Task storage task = tasks[taskId];
-        require(!task.finalized);
-        require(task.bidEndDate < block.timestamp);
-
-        for (uint i=1; i <= task.bidCounter; i++) {
-            Bid storage bid = task.bids[i];
-            if (!bid.cancelled) {
-                payable(bid.owner).transfer(bid.amount);
-                bid.cancelled = true;
-            }
-        }
+        require(!task.finalized, "You can not cancel a finalized task.");
+		require(task.owner == msg.sender, "You can not cancel a task that you do not own.");
+        require(task.bidCounter == 0, "You can not cancel a task with bids.");
 
         payable(task.owner).transfer(task.depositAmount);
+
         task.finalized = true;
+
         emit LogCancelTask(taskId);
     }
 
-    function completeTask(uint taskId) public isOwner {
+    function completeTask(uint taskId) public payable {
         require(taskId > 0 && taskId <= taskCounter);
 
 		Task storage task = tasks[taskId];
-        require(!task.finalized);
-        require(task.bidEndDate >= block.timestamp);
+        require(!task.finalized, "The task has already been finalized.");
+        require(task.owner == msg.sender, "Only the task owner can mark a task complete.");
+        require(block.timestamp >= task.bidEndDate, "You can not complete a task before bidding is over.");
 
         if (task.minBid.id != 0) {
             uint256 refund = task.startAmount - task.minBid.amount;
@@ -118,44 +134,44 @@ contract App is Owner {
         }
 
         task.finalized = true;
+
         emit LogCompleteTask(taskId);
     }
 
-    function placeBid(uint taskId) public payable {
+    function placeBid(uint taskId, uint bidAmount) public {
         require(taskId > 0 && taskId <= taskCounter);
 
         Task storage task = tasks[taskId];
-        require(task.owner != msg.sender);
-        require(task.startAmount == task.depositAmount);
-        require(task.bidEndDate >= block.timestamp);
-        require(!task.finalized);
-        require(msg.value <= task.startAmount);
-
-        if (task.bidCounter > 0) {
-            require(msg.value < task.minBid.amount);
+        require(task.bidEndDate >= block.timestamp, "You can not place a bid after bid end date.");
+        require(!task.finalized, "You can not place a bid on a finalized task.");
+        if (task.bidCounter <= 0) {
+            require(bidAmount <= task.startAmount, "Your bid must be lower than the start amount.");
+        } else {
+            require(bidAmount < task.minBid.amount, "Your bid must be lower than the min bid.");
         }
-        
+
         for (uint i=1; i <= task.bidCounter; i++) {
             Bid storage bid = task.bids[i];
-            if (bid.owner == msg.sender && !bid.cancelled) {
-                payable(msg.sender).transfer(bid.amount);
-                bid.amount = msg.value;
+            if (bid.owner == msg.sender) {
+                bid.amount = bidAmount;
                 bid.date = block.timestamp;
+                bid.cancelled = false;
                 task.minBid = bid;
-                emit LogPlaceBid(bid.id, taskId, msg.value, block.timestamp, msg.sender);
+                emit LogPlaceBid(bid.id, taskId, bidAmount, block.timestamp, msg.sender);
                 return;
             }
         }
 
         task.bidCounter++;
-        task.bids[task.bidCounter] = Bid(taskCounter, msg.value, block.timestamp, false, msg.sender);
+        task.bids[task.bidCounter] = Bid(taskCounter, bidAmount, block.timestamp, false, msg.sender);
         task.minBid = task.bids[task.bidCounter];
-        emit LogPlaceBid(task.bidCounter, taskId, msg.value, block.timestamp, msg.sender);
+
+        emit LogPlaceBid(task.bidCounter, taskId, bidAmount, block.timestamp, msg.sender);
     }
 
     function cancelBid(uint taskId, uint bidId) public {
         require(taskId > 0 && taskId <= taskCounter);
-        
+
         Task storage task = tasks[taskId];
         require(task.owner == msg.sender);
         require(task.bidEndDate > block.timestamp);
@@ -168,7 +184,7 @@ contract App is Owner {
                 require(!bid.cancelled);
                 payable(bid.owner).transfer(bid.amount);
                 bid.cancelled = true;
-                break ;
+                break;
             }
         }
 
@@ -191,6 +207,6 @@ contract App is Owner {
             task.minBid.owner = address(0);
         }
 
-        emit LogCancelBid(bidId);
+        emit LogCancelBid(taskId, bidId);
     }
 }

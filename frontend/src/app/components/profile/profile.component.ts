@@ -32,8 +32,7 @@ export class ProfileComponent implements OnInit {
   user?: User
   tasks: Task[] = []
   bids: Bid[] = []
-
-  userAddress: string | null = null;
+  wallet_address: string | null = null
 
   constructor(private userService: UserService, private taskService: TaskService, private bidService: BidService, private contractService: ContractService) { }
 
@@ -44,8 +43,13 @@ export class ProfileComponent implements OnInit {
       });
 
       this.bidService.getAll().subscribe(bids => this.bids = bids)
+
+      this.contractService.getWalletAddress().subscribe(address => this.wallet_address = address);
   }
 
-  protected readonly BidStatus = BidStatus;
-  protected readonly TaskStatus = TaskStatus;
+  onConnectWallet(): void {
+    this.contractService.connectWallet()
+  }
+
+  protected readonly JSON = JSON;
 }
