@@ -49,12 +49,21 @@
 * Run the command `npm install` to download all required dependencies.
 * Open the file "frontend/src/services/auth.service.ts" in a text editor and set the "GITHUB_CLIENT_ID" field to the Client ID received from GitHub in the "Setup Github Oauth Application" section.
 * Run the command `ng serve` to start the server.
-* Your application is now running and available to test locally at `http://localhost:4200/`.
+* Your application is now running and available to test locally at `http://localhost:4200/`. 
 
-## Acknowledgments
-The design of this app was supported by the National Science Foundation (Award #2234974).
+## Deploy Smart Contract ##
+* Navigate to the contracts directory `cd research-exchange/contracts`
+* Run the command `python compile.py` to compile the smart contracts. This will create an 'abi.json' file.
+* Modify the **RPC_PROVIDER_URL** field of the deploy.py file to be the address of your RPC provider.
+* Modify the **PRIVATE_KEY** field of deploy.py file to be the private key of the account you wish to deploy the smart contract from
+* Run the command `python deploy.py` to deploy the smart contract.
 
-<p align="center">
-    <img src="./logos/twc.png" height="20%" width="20%">
-</p>
-<h4 align="center">Trustworthy Computing Group</h4>
+## Link Smart Contract to Backend ##
+* Navigate to the backend management commands directory `cd research-exchange/management/commands`
+* Modify the **contract address** and **abi** inside of the `listen_contract.py` file to be the address and abi of the contract just deployed.
+* Run the command `python manage.py listen_contract`. This command will add any changes made to the smart contract to the backend database.
+  * This is a long running command intended to be executed in the background.
+
+## Link Smart Contract to Frontend ##
+* Navigate to the frontend services directory `cd research-exchange/frontend/src/app/services`
+* Modify the **contract address** and **abi** inside of the `contract.service.ts` file to be the address and abi of the contract just deployed.
